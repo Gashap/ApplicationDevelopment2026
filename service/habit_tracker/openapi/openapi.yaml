@@ -1,0 +1,593 @@
+openapi: 3.0.3
+info:
+  description: |
+    API трекера привычек: пользователь заводит привычки, смотрит их список,
+    правит и удаляет. Подход API first — сначала контракт, потом код.
+
+    Правило контракта: метод = намерение · статус = результат · форма = DTO.
+    Внутренние поля сущности (ownerId, служебные флаги, даты удаления)
+    наружу не отдаются — клиент видит только схемы из components.
+
+    Ошибки доступа:
+    * **401** — «не знаю, кто ты»: нет токена или он недействителен;
+    * **403** — «знаю — нельзя»: токен в порядке, но привычка чужая.
+  title: Habit Tracker API
+  version: 1.0.0
+servers:
+- description: Локальный запуск сгенерированного сервиса
+  url: http://localhost:8080
+security:
+- bearerAuth: []
+tags:
+- description: Привычки текущего пользователя
+  name: habits
+paths:
+  /api/habits:
+    get:
+      description: Возвращает страницу привычек. Можно отфильтровать по статусу.
+      operationId: list_habits
+      parameters:
+      - description: Показать только активные или только архивные привычки
+        explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          $ref: '#/components/schemas/HabitStatus'
+        style: form
+      - description: Сколько привычек вернуть на странице
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      - description: Сколько привычек пропустить от начала списка
+        explode: true
+        in: query
+        name: offset
+        required: false
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitPage'
+          description: Страница привычек
+        "400":
+          content:
+            application/json:
+              example:
+                message: Поле title обязательно и не может быть пустым
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Некорректный запрос — тело или параметры не прошли проверку
+            контракта
+        "401":
+          content:
+            application/json:
+              example:
+                message: Требуется авторизация
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Не знаю, кто ты — токен не передан, просрочен или недейств\
+            ителен"
+      summary: Список привычек текущего пользователя
+      tags:
+      - habits
+      x-openapi-router-controller: habit_tracker.controllers.habits_controller
+    post:
+      description: |
+        Создаёт новую привычку. POST не идемпотентен: два одинаковых запроса
+        создадут две привычки.
+      operationId: create_habit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewHabitRequest'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitView'
+          description: Привычка создана
+          headers:
+            Location:
+              description: Адрес созданной привычки
+              explode: false
+              schema:
+                example: /api/habits/42
+                type: string
+              style: simple
+        "400":
+          content:
+            application/json:
+              example:
+                message: Поле title обязательно и не может быть пустым
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Некорректный запрос — тело или параметры не прошли проверку
+            контракта
+        "401":
+          content:
+            application/json:
+              example:
+                message: Требуется авторизация
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Не знаю, кто ты — токен не передан, просрочен или недейств\
+            ителен"
+      summary: Создать привычку
+      tags:
+      - habits
+      x-openapi-router-controller: habit_tracker.controllers.habits_controller
+  /api/habits/{habitId}:
+    delete:
+      description: "DELETE идемпотентен: повторный вызов вернёт 404, состояние не\
+        \ изменится."
+      operationId: delete_habit
+      parameters:
+      - description: Идентификатор привычки
+        example: 42
+        explode: false
+        in: path
+        name: habitId
+        required: true
+        schema:
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: "Привычка удалена, тела ответа нет"
+        "401":
+          content:
+            application/json:
+              example:
+                message: Требуется авторизация
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Не знаю, кто ты — токен не передан, просрочен или недейств\
+            ителен"
+        "403":
+          content:
+            application/json:
+              example:
+                message: Нет доступа к этой привычке
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Знаю, кто ты, но нельзя — привычка принадлежит другому пол\
+            ьзователю"
+        "404":
+          content:
+            application/json:
+              example:
+                message: Привычка 42 не найдена
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Привычки с таким id нет (или она уже удалена)
+      summary: Удалить привычку
+      tags:
+      - habits
+      x-openapi-router-controller: habit_tracker.controllers.habits_controller
+    get:
+      operationId: get_habit
+      parameters:
+      - description: Идентификатор привычки
+        example: 42
+        explode: false
+        in: path
+        name: habitId
+        required: true
+        schema:
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitView'
+          description: Привычка найдена
+        "401":
+          content:
+            application/json:
+              example:
+                message: Требуется авторизация
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Не знаю, кто ты — токен не передан, просрочен или недейств\
+            ителен"
+        "403":
+          content:
+            application/json:
+              example:
+                message: Нет доступа к этой привычке
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Знаю, кто ты, но нельзя — привычка принадлежит другому пол\
+            ьзователю"
+        "404":
+          content:
+            application/json:
+              example:
+                message: Привычка 42 не найдена
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Привычки с таким id нет (или она уже удалена)
+      summary: Получить одну привычку
+      tags:
+      - habits
+      x-openapi-router-controller: habit_tracker.controllers.habits_controller
+    patch:
+      description: |
+        Частичное обновление: меняются только переданные поля.
+        Например, тело только с полем status = ARCHIVED отправит привычку в архив.
+      operationId: update_habit
+      parameters:
+      - description: Идентификатор привычки
+        example: 42
+        explode: false
+        in: path
+        name: habitId
+        required: true
+        schema:
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabitPatchRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitView'
+          description: Привычка обновлена
+        "400":
+          content:
+            application/json:
+              example:
+                message: Поле title обязательно и не может быть пустым
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Некорректный запрос — тело или параметры не прошли проверку
+            контракта
+        "401":
+          content:
+            application/json:
+              example:
+                message: Требуется авторизация
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Не знаю, кто ты — токен не передан, просрочен или недейств\
+            ителен"
+        "403":
+          content:
+            application/json:
+              example:
+                message: Нет доступа к этой привычке
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: "Знаю, кто ты, но нельзя — привычка принадлежит другому пол\
+            ьзователю"
+        "404":
+          content:
+            application/json:
+              example:
+                message: Привычка 42 не найдена
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Привычки с таким id нет (или она уже удалена)
+      summary: Изменить часть полей привычки
+      tags:
+      - habits
+      x-openapi-router-controller: habit_tracker.controllers.habits_controller
+components:
+  parameters:
+    HabitId:
+      description: Идентификатор привычки
+      example: 42
+      explode: false
+      in: path
+      name: habitId
+      required: true
+      schema:
+        format: int64
+        minimum: 1
+        type: integer
+      style: simple
+    StatusFilter:
+      description: Показать только активные или только архивные привычки
+      explode: true
+      in: query
+      name: status
+      required: false
+      schema:
+        $ref: '#/components/schemas/HabitStatus'
+      style: form
+    Limit:
+      description: Сколько привычек вернуть на странице
+      explode: true
+      in: query
+      name: limit
+      required: false
+      schema:
+        default: 20
+        maximum: 100
+        minimum: 1
+        type: integer
+      style: form
+    Offset:
+      description: Сколько привычек пропустить от начала списка
+      explode: true
+      in: query
+      name: offset
+      required: false
+      schema:
+        default: 0
+        minimum: 0
+        type: integer
+      style: form
+  responses:
+    BadRequest:
+      content:
+        application/json:
+          example:
+            message: Поле title обязательно и не может быть пустым
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      description: Некорректный запрос — тело или параметры не прошли проверку контракта
+    Unauthorized:
+      content:
+        application/json:
+          example:
+            message: Требуется авторизация
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      description: "Не знаю, кто ты — токен не передан, просрочен или недействител\
+        ен"
+    Forbidden:
+      content:
+        application/json:
+          example:
+            message: Нет доступа к этой привычке
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      description: "Знаю, кто ты, но нельзя — привычка принадлежит другому пользов\
+        ателю"
+    NotFound:
+      content:
+        application/json:
+          example:
+            message: Привычка 42 не найдена
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      description: Привычки с таким id нет (или она уже удалена)
+  schemas:
+    HabitStatus:
+      description: "ACTIVE — привычка отслеживается, ARCHIVED — убрана в архив"
+      enum:
+      - ACTIVE
+      - ARCHIVED
+      title: HabitStatus
+      type: string
+    Frequency:
+      description: Как часто нужно выполнять привычку
+      enum:
+      - DAILY
+      - WEEKLY
+      title: Frequency
+      type: string
+    NewHabitRequest:
+      additionalProperties: false
+      description: "Контракт входа для создания привычки — то, что клиент обязан п\
+        ринести"
+      example:
+        targetPerWeek: 5
+        description: "Перед сном, бумажная книга"
+        title: Читать 20 минут
+        frequency: DAILY
+      properties:
+        title:
+          example: Читать 20 минут
+          maxLength: 100
+          minLength: 1
+          title: title
+          type: string
+        description:
+          example: "Перед сном, бумажная книга"
+          maxLength: 500
+          title: description
+          type: string
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        targetPerWeek:
+          description: Сколько раз в неделю (для WEEKLY)
+          example: 5
+          maximum: 7
+          minimum: 1
+          title: targetPerWeek
+          type: integer
+      required:
+      - frequency
+      - title
+      title: NewHabitRequest
+      type: object
+    HabitPatchRequest:
+      additionalProperties: false
+      description: "Частичное обновление — все поля необязательны, но хотя бы одно\
+        \ нужно передать"
+      example:
+        targetPerWeek: 1
+        description: description
+        title: title
+        frequency: DAILY
+        status: ACTIVE
+      minProperties: 1
+      properties:
+        title:
+          maxLength: 100
+          minLength: 1
+          title: title
+          type: string
+        description:
+          maxLength: 500
+          title: description
+          type: string
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        targetPerWeek:
+          maximum: 7
+          minimum: 1
+          title: targetPerWeek
+          type: integer
+        status:
+          $ref: '#/components/schemas/HabitStatus'
+      title: HabitPatchRequest
+      type: object
+    HabitView:
+      description: |
+        Контракт выхода — то, что клиент видит о привычке.
+        Внутренние поля сущности (ownerId, deletedAt, служебные флаги
+        напоминаний) сюда намеренно не входят.
+      example:
+        currentStreak: 3
+        createdAt: 2026-11-10T08:30:00Z
+        targetPerWeek: 5
+        description: "Перед сном, бумажная книга"
+        id: 42
+        title: Читать 20 минут
+        frequency: DAILY
+        status: ACTIVE
+      properties:
+        id:
+          example: 42
+          format: int64
+          title: id
+          type: integer
+        title:
+          example: Читать 20 минут
+          title: title
+          type: string
+        description:
+          example: "Перед сном, бумажная книга"
+          title: description
+          type: string
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        targetPerWeek:
+          example: 5
+          title: targetPerWeek
+          type: integer
+        status:
+          $ref: '#/components/schemas/HabitStatus'
+        currentStreak:
+          description: Сколько периодов подряд привычка выполнена
+          example: 3
+          minimum: 0
+          title: currentStreak
+          type: integer
+        createdAt:
+          example: 2026-11-10T08:30:00Z
+          format: date-time
+          title: createdAt
+          type: string
+      required:
+      - createdAt
+      - currentStreak
+      - frequency
+      - id
+      - status
+      - title
+      title: HabitView
+      type: object
+    HabitPage:
+      description: Страница списка привычек
+      example:
+        total: 7
+        offset: 0
+        limit: 20
+        items:
+        - currentStreak: 3
+          createdAt: 2026-11-10T08:30:00Z
+          targetPerWeek: 5
+          description: "Перед сном, бумажная книга"
+          id: 42
+          title: Читать 20 минут
+          frequency: DAILY
+          status: ACTIVE
+        - currentStreak: 3
+          createdAt: 2026-11-10T08:30:00Z
+          targetPerWeek: 5
+          description: "Перед сном, бумажная книга"
+          id: 42
+          title: Читать 20 минут
+          frequency: DAILY
+          status: ACTIVE
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/HabitView'
+          title: items
+          type: array
+        total:
+          description: Сколько всего привычек подходит под фильтр
+          example: 7
+          title: total
+          type: integer
+        limit:
+          example: 20
+          title: limit
+          type: integer
+        offset:
+          example: 0
+          title: offset
+          type: integer
+      required:
+      - items
+      - limit
+      - offset
+      - total
+      title: HabitPage
+      type: object
+    ApiError:
+      description: "Ошибка — тоже DTO, одинаковой формы для всех кодов 4xx"
+      example:
+        message: Привычка 42 не найдена
+      properties:
+        message:
+          example: Привычка 42 не найдена
+          title: message
+          type: string
+      required:
+      - message
+      title: ApiError
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      description: "Токен пользователя в заголовке `Authorization: Bearer <token>`"
+      scheme: bearer
+      type: http
+      x-bearerInfoFunc: habit_tracker.controllers.security_controller.info_from_bearerAuth
