@@ -21,3 +21,10 @@
 #docs/*.md
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
+
+# Файлы, доработанные руками: при повторной генерации не перезаписывать
+habit_tracker/__main__.py
+habit_tracker/controllers/habits_controller.py
+habit_tracker/controllers/security_controller.py
+habit_tracker/test/__init__.py
+habit_tracker/test/test_habits_controller.py

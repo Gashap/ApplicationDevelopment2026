@@ -1,4 +1,8 @@
-from typing import List
+# Демонстрационная авторизация: вместо настоящих JWT — заранее известные токены.
+DEMO_TOKENS = {
+    "alice-token": "alice",
+    "bob-token": "bob",
+}
 
 
 def info_from_bearerAuth(token):
@@ -12,5 +16,7 @@ def info_from_bearerAuth(token):
     :return: Decoded token information or None if token is invalid
     :rtype: dict | None
     """
-    return {'uid': 'user_id'}
-
+    user = DEMO_TOKENS.get(token)
+    if user is None:
+        return None  # connexion ответит 401 — «не знаю, кто ты»
+    return {'sub': user}

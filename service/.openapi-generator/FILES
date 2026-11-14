@@ -1,15 +1,11 @@
 .dockerignore
 .gitignore
-.openapi-generator-ignore
 .travis.yml
 Dockerfile
 README.md
 git_push.sh
 habit_tracker/__init__.py
-habit_tracker/__main__.py
 habit_tracker/controllers/__init__.py
-habit_tracker/controllers/habits_controller.py
-habit_tracker/controllers/security_controller.py
 habit_tracker/encoder.py
 habit_tracker/models/__init__.py
 habit_tracker/models/api_error.py
@@ -21,8 +17,6 @@ habit_tracker/models/habit_status.py
 habit_tracker/models/habit_view.py
 habit_tracker/models/new_habit_request.py
 habit_tracker/openapi/openapi.yaml
-habit_tracker/test/__init__.py
-habit_tracker/test/test_habits_controller.py
 habit_tracker/typing_utils.py
 habit_tracker/util.py
 requirements.txt
