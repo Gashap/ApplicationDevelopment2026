@@ -96,6 +96,7 @@ paths:
             schema:
               $ref: '#/components/schemas/NewHabitRequest'
         required: true
+        x-body-name: new_habit_request
       responses:
         "201":
           content:
@@ -257,6 +258,7 @@ paths:
             schema:
               $ref: '#/components/schemas/HabitPatchRequest'
         required: true
+        x-body-name: habit_patch_request
       responses:
         "200":
           content:

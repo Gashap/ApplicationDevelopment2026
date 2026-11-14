@@ -53,6 +53,7 @@ paths:
         создадут две привычки.
       requestBody:
         required: true
+        x-body-name: new_habit_request
         content:
           application/json:
             schema:
@@ -104,6 +105,7 @@ paths:
         Например, тело только с полем status = ARCHIVED отправит привычку в архив.
       requestBody:
         required: true
+        x-body-name: habit_patch_request
         content:
           application/json:
             schema:
