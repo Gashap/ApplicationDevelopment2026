@@ -26,7 +26,7 @@
 - **Успешные коды** подобраны по смыслу операции: 200 — данные отданы, 201 — ресурс создан, 204 — удалено, тела нет.
 - **401 vs 403:** `401 Unauthorized` — «не знаю, кто ты» (нет токена / токен неизвестен); `403 Forbidden` — «знаю, кто ты, но нельзя» (привычка принадлежит другому пользователю). `404` — привычки с таким id нет.
 - **DTO в `components/schemas`:** `NewHabitRequest`, `HabitPatchRequest`, `HabitView`, `HabitPage`, `ApiError`, enum'ы `Frequency`, `HabitStatus`. Внутренняя сущность (`HabitEntity` в [`service/habit_tracker/store.py`](service/habit_tracker/store.py) с `owner_id`, `reminder_job_id`) наружу **не едет** — контроллер переводит её в `HabitView`, а `additionalProperties: false` не даёт клиенту прислать лишние поля (например, `ownerId`).
-- Спека валидна: проверено в editor.swagger.io и командой `openapi-generator-cli validate -i api.yaml` → `No validation issues detected.`
+- Спека валидна: `openapi-generator-cli validate -i api.yaml` → `No validation issues detected.` (можно также вставить в editor.swagger.io).
 
 ## Часть 2 · Кодоген
 
